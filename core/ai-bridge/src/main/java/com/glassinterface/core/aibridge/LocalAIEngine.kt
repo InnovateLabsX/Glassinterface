@@ -92,6 +92,7 @@ class LocalAIEngine(private val context: Context) : AIEngine {
             Log.e(TAG, "Inference failed: ${e.message}", e)
             return DetectionResult(emptyList())
         }
+
         val rawBoxes = extractBoxes(outputBuffer.floatArray, frame.width, frame.height)
 
         // 4. Enrich with distance
@@ -135,11 +136,12 @@ class LocalAIEngine(private val context: Context) : AIEngine {
                 val w = output[2 * numBoxes + i]
                 val h = output[3 * numBoxes + i]
 
-                // Convert to normalized coordinates [0..1]
-                val normCx = cx / INPUT_SIZE
-                val normCy = cy / INPUT_SIZE
-                val normW = w / INPUT_SIZE
-                val normH = h / INPUT_SIZE
+                // TFLite models may output pixel coords [0..640] or normalized [0..1]
+                val isPixelCoords = cx > 1.5f || cy > 1.5f || w > 1.5f || h > 1.5f
+                val normCx = if (isPixelCoords) cx / INPUT_SIZE else cx
+                val normCy = if (isPixelCoords) cy / INPUT_SIZE else cy
+                val normW = if (isPixelCoords) w / INPUT_SIZE else w
+                val normH = if (isPixelCoords) h / INPUT_SIZE else h
 
                 val left = Math.max(0f, normCx - normW / 2)
                 val top = Math.max(0f, normCy - normH / 2)
