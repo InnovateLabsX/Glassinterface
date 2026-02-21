@@ -24,11 +24,12 @@ class LocalAIEngine(private val context: Context) : AIEngine {
         private const val TAG = "LocalAIEngine"
         private const val MODEL_PATH = "yolov8s.tflite"
         private const val INPUT_SIZE = 640
-        private const val CONFIDENCE_THRESHOLD = 0.45f
+        private const val CONFIDENCE_THRESHOLD = 0.35f
     }
 
     private var interpreter: Interpreter? = null
     private val distanceEstimator = DistanceEstimator()
+    private val centroidTracker = CentroidTracker()
     private val riskScorer = RiskScorer()
 
     // Assuming COCO labels
@@ -93,14 +94,19 @@ class LocalAIEngine(private val context: Context) : AIEngine {
         }
         val rawBoxes = extractBoxes(outputBuffer.floatArray, frame.width, frame.height)
 
-        // 4. Enrich & Score
+        // 4. Enrich with distance
         val enrichedBoxes = distanceEstimator.estimate(rawBoxes, frame.height)
-        val alerts = riskScorer.score(enrichedBoxes)
+
+        // 5. Track objects across frames (assigns IDs, velocity, approaching)
+        val trackedBoxes = centroidTracker.update(enrichedBoxes)
+
+        // 6. Score risks and generate alerts
+        val alerts = riskScorer.score(trackedBoxes)
 
         val processingTimeMs = (System.currentTimeMillis() - startMs).toFloat()
 
         return DetectionResult(
-            boxes = enrichedBoxes,
+            boxes = trackedBoxes,
             alerts = alerts,
             processingTimeMs = processingTimeMs
         )

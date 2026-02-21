@@ -101,13 +101,13 @@ class RiskScorer(
         var msg = when (priority) {
             "CRITICAL" -> {
                 if (det.approaching) {
-                    "$labelCap approaching fast $directionText, String.format(\"%.1f\", det.distance) metres!"
+                    "$labelCap approaching fast $directionText, ${"%.1f".format(det.distance)} metres!"
                 } else {
-                    "$labelCap very close $directionText, String.format(\"%.1f\", det.distance) metres!"
+                    "$labelCap very close $directionText, ${"%.1f".format(det.distance)} metres!"
                 }
             }
-            "WARNING" -> "$labelCap $directionText, about String.format(\"%.1f\", det.distance) metres."
-            else -> "$labelCap nearby $directionText, String.format(\"%.1f\", det.distance) metres."
+            "WARNING" -> "$labelCap $directionText, about ${"%.1f".format(det.distance)} metres."
+            else -> "$labelCap nearby $directionText, ${"%.1f".format(det.distance)} metres."
         }
 
         if (priority == "CRITICAL" || priority == "WARNING") {
