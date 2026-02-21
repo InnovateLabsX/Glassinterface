@@ -140,3 +140,40 @@ class TestThresholdBoundaries:
         alerts = scorer.score([det])
         if alerts:
             assert alerts[0].priority == "INFO"
+            assert "Move"  not in alerts[0].message # info shouldn't have naval prompts
+
+class TestNavigationHints:
+    """Verify explicit navigational guidance logic."""
+    def test_center_critical_hold(self, scorer):
+        """Extremely high risk object dead center suggests Hold."""
+        det = _det("truck", 0.5, "CENTER", velocity=-2.0, approaching=True)
+        alerts = scorer.score([det])
+        assert "Hold." in alerts[0].message
+
+    def test_center_warning_move_right(self, scorer):
+        """Center warning object suggests typical pedestrian passing (Move right)."""
+        # Person at 5m: dist_factor=0.375. vel=-1.0 -> vel_boost=0.5 -> vel_factor=1.5
+        # risk = 0.375 * 1.5 * 1.0 * 1.2 = 0.675 -> WARNING
+        det = _det("person", 5.0, "CENTER", velocity=-1.0, approaching=True)
+        alerts = scorer.score([det])
+        assert "Move right." in alerts[0].message
+
+    def test_left_object_move_right(self, scorer):
+        """Object approaching from left suggests moving right."""
+        det = _det("car", 2.0, "LEFT", velocity=-1.0, approaching=True)
+        alerts = scorer.score([det])
+        assert "Move right." in alerts[0].message
+
+    def test_right_object_move_left(self, scorer):
+        """Object approaching from right suggests moving left."""
+        det = _det("bicycle", 2.0, "RIGHT", velocity=-1.0, approaching=True)
+        alerts = scorer.score([det])
+        assert "Move left." in alerts[0].message
+
+    def test_safe_distance_proceed(self, scorer):
+        """Warning object at safe distance and not approaching suggests caution."""
+        det = _det("car", 4.0, "LEFT")
+        # Ensure it's treated as a warning
+        det.risk_score = 0.5 
+        alerts = scorer.score([det])
+        assert "Proceed with caution." in alerts[0].message

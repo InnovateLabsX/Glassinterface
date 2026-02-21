@@ -5,7 +5,7 @@
 ## Architecture
 
 ```
-Frame → ObjectDetector (YOLOv8n) → DistanceEstimator → ReasoningEngine → AlertManager → JSON
+Frame → ObjectDetector (YOLOv8s + BoT-SORT) → DistanceEstimator → ReasoningEngine → AlertManager → JSON → Android Client
 ```
 
 ## Quick Start
@@ -35,10 +35,11 @@ frame = cv2.imread("test.jpg")
 result = sdk.process_frame(frame)
 
 print(result.to_json())
+print(result.to_json())
 # {
 #   "processing_time_ms": 38.2,
 #   "detections": [...],
-#   "alerts": [{"priority": "WARNING", "message": "Person ahead, about 2 metres", ...}]
+#   "alerts": [{"priority": "CRITICAL", "message": "Person very close ahead, 0.7 metres! Hold.", ...}]
 # }
 
 sdk.release()
@@ -72,16 +73,26 @@ sdk = GlassInterfaceSDK(config=config)
 
 ## Project Structure
 
-```
+```text
 glass_engine/
 ├── sdk.py              # Public facade
 ├── config.py           # All thresholds
 ├── models.py           # Detection, Alert, FrameResult
-├── detection/detector.py   # YOLOv8n wrapper
+├── detection/detector.py   # YOLOv8s + BoT-SORT wrapper
 ├── distance/estimator.py   # BBox distance heuristic
 ├── reasoning/engine.py     # Priority rules
 └── alert/manager.py        # Cooldown & dedup
+
+app/                    # Android Compose App Client
 ```
+
+## Android Client
+
+The repository includes a ready-to-compile **Android Jetpack Compose** application under `app/`. The app acts as a thin client, streaming camera frames to the Python AI engine over your local network and displaying the bounding boxes, risk alerts, and explicit navigation prompts in real-time.
+
+1. Start the API server on your PC: `uvicorn server:app --host 0.0.0.0 --port 8000`
+2. Build the Android app (`./gradlew assembleDebug`) and install `app/build/outputs/apk/debug/app-debug.apk`.
+3. In the Android app Settings, change the Server URL to your PC's Wi-Fi IP address (e.g. `http://192.168.1.100:8000`).
 
 ## Future Roadmap
 

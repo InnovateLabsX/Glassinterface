@@ -118,9 +118,14 @@ class RiskScorer:
             else:
                 msg = f"{label_cap} very close {direction_text}, {det.distance:.1f} metres!"
         elif priority == "WARNING":
-            msg = f"{label_cap} {direction_text}, about {det.distance:.1f} metres"
+            msg = f"{label_cap} {direction_text}, about {det.distance:.1f} metres."
         else:
-            msg = f"{label_cap} nearby {direction_text}, {det.distance:.1f} metres"
+            msg = f"{label_cap} nearby {direction_text}, {det.distance:.1f} metres."
+
+        # Append navigation instruction for warning and critical alerts
+        if priority in ("CRITICAL", "WARNING"):
+            hint = self._get_navigation_hint(det)
+            msg = f"{msg} {hint}"
 
         return Alert(
             priority=priority,
@@ -141,3 +146,20 @@ class RiskScorer:
             "RIGHT": "to your right",
             "CENTER": "ahead",
         }.get(direction, "nearby")
+
+    @staticmethod
+    def _get_navigation_hint(det: Detection) -> str:
+        """Provide explicit navigational guidance based on obstacle location."""
+        if not det.approaching and det.distance > 3.0:
+             return "Proceed with caution."
+
+        if det.direction == "CENTER":
+            if det.risk_score > 1.0: # Extremely critical
+                return "Hold."
+            return "Move right."
+        elif det.direction == "LEFT":
+            return "Move right."
+        elif det.direction == "RIGHT":
+            return "Move left."
+        return "Hold."
+
