@@ -29,10 +29,11 @@ class GlassConfig:
     """
 
     # ── Object Detection ─────────────────────────────────────────────
-    MODEL_PATH: str = "yolov8n.pt"
+    MODEL_PATH: str = "yolov8s.pt"
     MODEL_INPUT_SIZE: int = 640
-    CONFIDENCE_THRESHOLD: float = 0.35
+    CONFIDENCE_THRESHOLD: float = 0.45
     NMS_IOU_THRESHOLD: float = 0.50
+    TRACKER_CONFIG_PATH: str = "custom_tracker.yaml"
 
     # ── Distance Estimation ──────────────────────────────────────────
     FOCAL_SCALE: float = 400.0  # pseudo-focal length; use 'c' key in demo.py to calibrate
@@ -124,7 +125,14 @@ class GlassConfig:
         "hair drier": 0.25,
         "toothbrush": 0.18,
     })
-    DEFAULT_REFERENCE_HEIGHT: float = 0.30  # fallback for unknown labels
+    CATEGORY_REFERENCE_HEIGHTS: dict[str, float] = field(default_factory=lambda: {
+        "person": 1.70,
+        "vehicle": 1.50,
+        "animal": 0.60,
+        "furniture": 0.80,
+        "other": 0.30,
+    })
+    DEFAULT_REFERENCE_HEIGHT: float = 0.30  # fallback for completely unknown labels
 
     # ── Direction Zones ──────────────────────────────────────────────
     LEFT_BOUNDARY: float = 0.33

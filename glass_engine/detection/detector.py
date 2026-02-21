@@ -57,11 +57,13 @@ class ObjectDetector:
         model = self._ensure_model()
         h, w = frame.shape[:2]
 
-        results = model.predict(
+        results = model.track(
             source=frame,
             imgsz=self._config.MODEL_INPUT_SIZE,
             conf=self._config.CONFIDENCE_THRESHOLD,
             iou=self._config.NMS_IOU_THRESHOLD,
+            persist=True,        # Keep tracks between frames
+            tracker=self._config.TRACKER_CONFIG_PATH, # Use tuned tracker config
             verbose=False,
         )
 
@@ -76,11 +78,15 @@ class ObjectDetector:
                 conf = float(box.conf[0])
                 cls_id = int(box.cls[0])
                 label = model.names.get(cls_id, f"class_{cls_id}")
+                
+                # Extract tracking ID if available
+                track_id = int(box.id[0]) if box.id is not None else None
 
                 detections.append(Detection(
                     label=label,
                     confidence=conf,
                     bbox=(x1 / w, y1 / h, x2 / w, y2 / h),
+                    id=track_id,
                 ))
 
         return detections

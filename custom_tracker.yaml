@@ -1,0 +1,15 @@
+# custom_tracker.yaml
+# BoT-SORT parameters tightened to aggressively reduce false positives.
+
+tracker_type: botsort # tracker type, ['botsort', 'bytetrack']
+track_high_thresh: 0.6 # threshold for the first association
+track_low_thresh: 0.2 # threshold for the second association
+new_track_thresh: 0.7 # threshold for init new track if the detection does not match any tracks
+track_buffer: 30 # keeping lost tracks frames
+match_thresh: 0.8 # threshold for matching tracks
+fuse_score: True # Fuse detection score with motion/IoU for matching
+gmc_method: sparseOptFlow # method of global motion compensation: ['sparseOptFlow', 'none']
+proximity_thresh: 0.5 # threshold for spatial distance based matching
+appearance_thresh: 0.25 # threshold for appearance feature based matching
+with_reid: False # use ReID model
+model: auto # ReID model name/path

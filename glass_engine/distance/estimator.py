@@ -53,9 +53,12 @@ class DistanceEstimator:
             bbox_height_norm = det.height
             bbox_height_px = bbox_height_norm * frame_height
 
-            ref_h = cfg.REFERENCE_HEIGHTS.get(
-                det.label, cfg.DEFAULT_REFERENCE_HEIGHT
-            )
+            ref_h = cfg.REFERENCE_HEIGHTS.get(det.label)
+            if ref_h is None:
+                category = cfg.get_label_category(det.label)
+                ref_h = cfg.CATEGORY_REFERENCE_HEIGHTS.get(
+                    category, cfg.DEFAULT_REFERENCE_HEIGHT
+                )
 
             # Scale reference height for partial visibility
             visible_h = ref_h * self._visibility_fraction(det)
