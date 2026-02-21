@@ -3,7 +3,6 @@ package com.glassinterface.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.glassinterface.core.aibridge.AIEngine
-import com.glassinterface.core.aibridge.NetworkAIEngine
 import com.glassinterface.core.camera.CameraFrameProvider
 import com.glassinterface.core.common.Alert
 import com.glassinterface.core.common.AlertConfig
@@ -64,11 +63,6 @@ class MainViewModel @Inject constructor(
 
     private fun initializeAIEngine() {
         viewModelScope.launch(Dispatchers.Default) {
-            // Pass server URL to network engine if applicable
-            val config = _uiState.value.alertConfig
-            if (aiEngine is NetworkAIEngine) {
-                aiEngine.serverUrl = config.serverUrl
-            }
             aiEngine.initialize()
             _uiState.update { it.copy(isConnected = true) }
         }
@@ -78,9 +72,12 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.alertConfig.collect { config ->
                 _uiState.update { it.copy(alertConfig = config) }
-                // Update server URL on the fly
-                if (aiEngine is NetworkAIEngine) {
-                    aiEngine.serverUrl = config.serverUrl
+
+                // Handle Camera Source Switching
+                if (config.useExternalCamera) {
+                    cameraFrameProvider.startExternalStream(config.serverUrl, viewModelScope)
+                } else {
+                    cameraFrameProvider.stopExternalStream()
                 }
             }
         }

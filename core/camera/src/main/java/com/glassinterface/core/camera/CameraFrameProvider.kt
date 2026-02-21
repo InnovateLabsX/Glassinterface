@@ -9,6 +9,13 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.Channel.Factory.CONFLATED
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import java.net.HttpURLConnection
+import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -53,5 +60,42 @@ class CameraFrameProvider @Inject constructor() {
                 imageProxy.close()
             }
         }
+    }
+
+    // ── ESP32-CAM MJPEG Stream ──────────────────────────────────────
+
+    private var mjpegJob: Job? = null
+
+    fun startExternalStream(urlStr: String, scope: CoroutineScope) {
+        stopExternalStream()
+        mjpegJob = scope.launch(Dispatchers.IO) {
+            try {
+                val url = URL(urlStr)
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+                connection.connect()
+
+                if (connection.responseCode == 200) {
+                    val mjpegStream = MjpegInputStream(connection.inputStream)
+                    while (isActive) {
+                        val bitmap = mjpegStream.readMjpegFrame()
+                        if (bitmap != null) {
+                            frameChannel.trySend(bitmap)
+                        }
+                    }
+                } else {
+                    android.util.Log.e("CameraFrameProvider", "HTTP Error: ${connection.responseCode}")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("CameraFrameProvider", "MJPEG Stream error", e)
+            }
+        }
+    }
+
+    fun stopExternalStream() {
+        mjpegJob?.cancel()
+        mjpegJob = null
     }
 }

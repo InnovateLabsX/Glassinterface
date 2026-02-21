@@ -3,6 +3,7 @@ package com.glassinterface.feature.settings
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
@@ -32,6 +33,7 @@ class SettingsRepository @Inject constructor(
         private val KEY_SCENE_MODE = stringPreferencesKey("scene_mode")
         private val KEY_COOLDOWN_MS = longPreferencesKey("cooldown_ms")
         private val KEY_SERVER_URL = stringPreferencesKey("server_url")
+        private val KEY_USE_EXTERNAL_CAMERA = booleanPreferencesKey("use_external_camera")
     }
 
     /**
@@ -42,7 +44,8 @@ class SettingsRepository @Inject constructor(
             sensitivity = prefs[KEY_SENSITIVITY] ?: 0.5f,
             mode = prefs[KEY_SCENE_MODE]?.let { SceneMode.valueOf(it) } ?: SceneMode.OUTDOOR,
             cooldownMs = prefs[KEY_COOLDOWN_MS] ?: 3000L,
-            serverUrl = prefs[KEY_SERVER_URL] ?: "http://10.0.2.2:8000"
+            serverUrl = prefs[KEY_SERVER_URL] ?: "http://192.168.4.1:81/stream",
+            useExternalCamera = prefs[KEY_USE_EXTERNAL_CAMERA] ?: false
         )
     }
 
@@ -67,6 +70,12 @@ class SettingsRepository @Inject constructor(
     suspend fun updateServerUrl(url: String) {
         context.dataStore.edit { prefs ->
             prefs[KEY_SERVER_URL] = url
+        }
+    }
+
+    suspend fun updateUseExternalCamera(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_USE_EXTERNAL_CAMERA] = enabled
         }
     }
 }

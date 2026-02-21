@@ -46,4 +46,10 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.updateServerUrl(url)
         }
     }
+
+    fun onExternalCameraChanged(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateUseExternalCamera(enabled)
+        }
+    }
 }

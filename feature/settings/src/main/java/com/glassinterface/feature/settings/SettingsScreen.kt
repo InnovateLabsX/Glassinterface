@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -69,21 +70,39 @@ fun SettingsScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // --- Server URL ---
-            SectionHeader("AI Server")
+            // --- External Camera Toggle ---
+            SectionHeader("Camera Source")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Use External Wi-Fi Camera",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Switch(
+                    checked = config.useExternalCamera,
+                    onCheckedChange = { viewModel.onExternalCameraChanged(it) }
+                )
+            }
+
+            // --- Stream URL ---
+            SectionHeader("ESP32-CAM Stream URL")
             OutlinedTextField(
                 value = serverUrlInput,
                 onValueChange = {
                     serverUrlInput = it
                     viewModel.onServerUrlChanged(it)
                 },
-                label = { Text("Server URL") },
-                placeholder = { Text("http://192.168.1.100:8000") },
+                label = { Text("Stream URL") },
+                placeholder = { Text("http://192.168.4.1:81/stream") },
                 singleLine = true,
+                enabled = config.useExternalCamera,
                 modifier = Modifier.fillMaxWidth()
             )
             Text(
-                text = "Use http://10.0.2.2:8000 for emulator, or your laptop's IP for a real device",
+                text = "Enter the MJPEG stream URL of your ESP32-CAM",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

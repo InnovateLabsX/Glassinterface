@@ -69,7 +69,8 @@ data class AlertConfig(
     val sensitivity: Float = 0.5f,
     val mode: SceneMode = SceneMode.OUTDOOR,
     val cooldownMs: Long = 3000L,
-    val serverUrl: String = "http://10.0.2.2:8000"
+    val serverUrl: String = "http://192.168.4.1:81/stream",
+    val useExternalCamera: Boolean = false
 )
 
 /**

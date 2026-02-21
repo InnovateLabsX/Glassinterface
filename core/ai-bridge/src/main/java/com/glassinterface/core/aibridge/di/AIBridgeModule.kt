@@ -1,25 +1,22 @@
 package com.glassinterface.core.aibridge.di
 
+import android.content.Context
 import com.glassinterface.core.aibridge.AIEngine
-import com.glassinterface.core.aibridge.NetworkAIEngine
-import dagger.Binds
+import com.glassinterface.core.aibridge.engine.LocalAIEngine
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class AIBridgeModule {
+object AIBridgeModule {
 
-    /**
-     * Bind NetworkAIEngine as the AIEngine implementation.
-     * Connects to the Python FastAPI server via WebSocket.
-     *
-     * To switch back to the fake stub for UI-only development,
-     * change this to bind FakeAIEngine instead.
-     */
-    @Binds
+    @Provides
     @Singleton
-    abstract fun bindAIEngine(impl: NetworkAIEngine): AIEngine
+    fun provideAIEngine(@ApplicationContext context: Context): AIEngine {
+        return LocalAIEngine(context)
+    }
 }
