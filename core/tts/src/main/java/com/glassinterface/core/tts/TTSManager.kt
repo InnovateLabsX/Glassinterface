@@ -1,6 +1,10 @@
 package com.glassinterface.core.tts
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.os.Build
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
@@ -32,6 +36,49 @@ class TTSManager @Inject constructor(
     private var isInitialized = false
     private var lastAlertTimeMs = 0L
 
+    private val audioManager by lazy {
+        context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
+
+    private var audioFocusRequest: AudioFocusRequest? = null
+
+    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
+            stop()
+        }
+    }
+
+    private fun requestAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val attributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+            audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setAudioAttributes(attributes)
+                .setAcceptsDelayedFocusGain(true)
+                .setOnAudioFocusChangeListener(audioFocusChangeListener)
+                .build()
+            audioManager.requestAudioFocus(audioFocusRequest!!)
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.requestAudioFocus(
+                audioFocusChangeListener,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+            )
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(audioFocusChangeListener)
+        }
+    }
+
     private val _isSpeaking = MutableStateFlow(false)
     /** Observable state for whether TTS is currently speaking. */
     val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
@@ -55,10 +102,12 @@ class TTSManager @Inject constructor(
                             _isSpeaking.value = true
                         }
                         override fun onDone(utteranceId: String?) {
+                            abandonAudioFocus()
                             _isSpeaking.value = false
                         }
                         @Deprecated("Deprecated in Java")
                         override fun onError(utteranceId: String?) {
+                            abandonAudioFocus()
                             _isSpeaking.value = false
                             Log.e(TAG, "TTS error for utterance: $utteranceId")
                         }
@@ -94,6 +143,7 @@ class TTSManager @Inject constructor(
 
         lastAlertTimeMs = now
         val utteranceId = UUID.randomUUID().toString()
+        requestAudioFocus()
         tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
         Log.i(TAG, "Speaking alert: $message")
         return true
@@ -103,6 +153,7 @@ class TTSManager @Inject constructor(
      * Stop any current speech immediately.
      */
     fun stop() {
+        abandonAudioFocus()
         tts?.stop()
         _isSpeaking.value = false
     }
@@ -111,6 +162,7 @@ class TTSManager @Inject constructor(
      * Release TTS resources. Call when the app is being destroyed.
      */
     fun shutdown() {
+        abandonAudioFocus()
         tts?.stop()
         tts?.shutdown()
         tts = null

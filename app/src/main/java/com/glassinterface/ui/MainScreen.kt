@@ -34,6 +34,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -59,7 +61,11 @@ fun MainScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         // Layer 1: Camera Preview
         AndroidView(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .semantics {
+                    contentDescription = "Live camera view for object detection"
+                },
             factory = { ctx ->
                 val previewView = PreviewView(ctx).apply {
                     layoutParams = ViewGroup.LayoutParams(
@@ -202,7 +208,10 @@ fun MainScreen(
                 .padding(bottom = 32.dp, start = 24.dp, end = 24.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(Color(0xCC1E1E1E))
-                .padding(horizontal = 24.dp, vertical = 12.dp),
+                .padding(horizontal = 24.dp, vertical = 12.dp)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = "Control bar"
+                },
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -219,10 +228,15 @@ fun MainScreen(
                 )
             }
 
-            IconButton(onClick = onNavigateToSettings) {
+            IconButton(
+                onClick = onNavigateToSettings,
+                modifier = Modifier.semantics {
+                    contentDescription = "Open Settings"
+                }
+            ) {
                 Icon(
                     imageVector = Icons.Filled.Settings,
-                    contentDescription = "Settings",
+                    contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(28.dp)
                 )
