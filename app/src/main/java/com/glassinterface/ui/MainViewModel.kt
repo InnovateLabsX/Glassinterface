@@ -134,8 +134,6 @@ class MainViewModel @Inject constructor(
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("MainViewModel", "Inference error", e)
-                } finally {
-                    bitmap.recycle()
                 }
             }
         }

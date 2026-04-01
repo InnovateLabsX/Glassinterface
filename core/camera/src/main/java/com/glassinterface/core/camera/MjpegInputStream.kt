@@ -28,7 +28,7 @@ class MjpegInputStream(inputStream: InputStream) : DataInputStream(BufferedInput
     @Throws(IOException::class)
     fun readMjpegFrame(): Bitmap? {
         mark(FRAME_MAX_LENGTH)
-        var headerLen = getStartOfSequence(this, SOI_MARKER)
+        val headerLen = getStartOfSequence(this, SOI_MARKER)
         reset()
 
         val header = ByteArray(headerLen)
@@ -45,6 +45,12 @@ class MjpegInputStream(inputStream: InputStream) : DataInputStream(BufferedInput
 
         reset()
 
+        if (contentLen <= 0) {
+            // Unlikely or stream corrupt, skip and return null to not crash
+            skipBytes(headerLen)
+            return null
+        }
+
         val frameData = ByteArray(contentLen)
         skipBytes(headerLen)
         readFully(frameData)
@@ -54,39 +60,40 @@ class MjpegInputStream(inputStream: InputStream) : DataInputStream(BufferedInput
 
     @Throws(IOException::class)
     private fun getStartOfSequence(inputStream: DataInputStream, sequence: ByteArray): Int {
-        val seqLen = sequence.size
-        val c = ByteArray(seqLen)
-        for (i in 0 until seqLen) {
-            c[i] = inputStream.readByte()
-        }
-        var len = seqLen
-        while (!c.contentEquals(sequence)) {
-            for (i in 0 until seqLen - 1) {
-                c[i] = c[i + 1]
-            }
-            c[seqLen - 1] = inputStream.readByte()
+        var len = 0
+        var matchIndex = 0
+        while (true) {
+            val b = inputStream.readByte()
             len++
+            if (b == sequence[matchIndex]) {
+                matchIndex++
+                if (matchIndex == sequence.size) {
+                    return len
+                }
+            } else {
+                matchIndex = if (b == sequence[0]) 1 else 0
+            }
+            if (len >= FRAME_MAX_LENGTH) return len // Fallback
         }
-        return len
     }
 
     @Throws(IOException::class)
     private fun getEndOfSequence(inputStream: DataInputStream, sequence: ByteArray): Int {
-        val seqLen = sequence.size
-        val c = ByteArray(seqLen)
-        for (i in 0 until seqLen) {
-            c[i] = inputStream.readByte()
-        }
-        var len = seqLen
-        while (!c.contentEquals(sequence)) {
-            for (i in 0 until seqLen - 1) {
-                c[i] = c[i + 1]
-            }
-            c[seqLen - 1] = inputStream.readByte()
+        var len = 0
+        var matchIndex = 0
+        while (true) {
+            val b = inputStream.readByte()
             len++
+            if (b == sequence[matchIndex]) {
+                matchIndex++
+                if (matchIndex == sequence.size) {
+                    return len
+                }
+            } else {
+                matchIndex = if (b == sequence[0]) 1 else 0
+            }
             if (len >= FRAME_MAX_LENGTH) return -1
         }
-        return len
     }
 
     @Throws(IOException::class, NumberFormatException::class)
