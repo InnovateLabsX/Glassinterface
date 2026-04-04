@@ -25,6 +25,8 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+*.docx
+*.doc
 
 # Pytest
 .pytest_cache/

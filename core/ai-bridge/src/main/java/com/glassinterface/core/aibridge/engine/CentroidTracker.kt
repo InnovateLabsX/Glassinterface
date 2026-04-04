@@ -68,19 +68,22 @@ class CentroidTracker(
             return emptyList()
         }
 
-        // Compute centroids for current detections
-        val inputCentroids = detections.map { det ->
-            val cx = (det.rect.left + det.rect.right) / 2f
-            val cy = (det.rect.top + det.rect.bottom) / 2f
-            val height = det.rect.bottom - det.rect.top
-            Triple(cx, cy, height)
+        // Compute centroids for current detections using primitive arrays to avoid object allocation
+        val cxArray = FloatArray(detections.size)
+        val cyArray = FloatArray(detections.size)
+        val heightArray = FloatArray(detections.size)
+        
+        for (i in detections.indices) {
+            val rect = detections[i].rect
+            cxArray[i] = (rect.left + rect.right) / 2f
+            cyArray[i] = (rect.top + rect.bottom) / 2f
+            heightArray[i] = rect.bottom - rect.top
         }
 
         // If no existing tracked objects, register all new
         if (objects.isEmpty()) {
             return detections.mapIndexed { i, det ->
-                val (cx, cy, height) = inputCentroids[i]
-                val id = register(det.label, cx, cy, height)
+                val id = register(det.label, cxArray[i], cyArray[i], heightArray[i])
                 det.copy(trackingId = id)
             }
         }
@@ -102,8 +105,8 @@ class CentroidTracker(
             for (di in detections.indices) {
                 // Only match same label
                 if (trackedList[oi].label != detections[di].label) continue
-                val dx = trackedList[oi].centroidX - inputCentroids[di].first
-                val dy = trackedList[oi].centroidY - inputCentroids[di].second
+                val dx = trackedList[oi].centroidX - cxArray[di]
+                val dy = trackedList[oi].centroidY - cyArray[di]
                 val dist = sqrt(dx * dx + dy * dy)
                 if (dist < maxDistance) {
                     allPairs.add(Match(oi, di, dist))
@@ -126,7 +129,9 @@ class CentroidTracker(
         // Update matched objects
         for ((objIdx, detIdx) in matches) {
             val obj = trackedList[objIdx]
-            val (cx, cy, height) = inputCentroids[detIdx]
+            val cx = cxArray[detIdx]
+            val cy = cyArray[detIdx]
+            val height = heightArray[detIdx]
             obj.prevBboxHeight = obj.bboxHeight
             obj.centroidX = cx
             obj.centroidY = cy
@@ -155,7 +160,9 @@ class CentroidTracker(
         // Register new objects for unmatched detections
         for (di in detections.indices) {
             if (!usedDetections[di]) {
-                val (cx, cy, height) = inputCentroids[di]
+                val cx = cxArray[di]
+                val cy = cyArray[di]
+                val height = heightArray[di]
                 val id = register(detections[di].label, cx, cy, height)
                 result[di] = detections[di].copy(trackingId = id)
             }
