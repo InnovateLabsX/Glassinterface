@@ -162,6 +162,29 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // --- Gemini API Key ---
+            SectionHeader("🤖 Gemini AI Assistant")
+
+            val geminiKey by viewModel.geminiApiKey.collectAsStateWithLifecycle()
+            var geminiKeyInput by remember(geminiKey) { mutableStateOf(geminiKey) }
+
+            OutlinedTextField(
+                value = geminiKeyInput,
+                onValueChange = {
+                    geminiKeyInput = it
+                    viewModel.onGeminiApiKeyChanged(it)
+                },
+                label = { Text("Gemini API Key") },
+                placeholder = { Text("AIzaSy...") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = "Free key from aistudio.google.com. Enables Q&A, smart responses, and conversational mode.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
         }
     }

@@ -32,6 +32,24 @@ enum class CommandType {
     LIST_MEMORIES,
     /** "help" — list available commands */
     HELP,
-    /** Unrecognised speech */
+
+    // ── v0.6.2 New Commands ──
+
+    /** Free-form question routed to Gemini LLM */
+    ASK_GEMINI,
+    /** "read this" / "read that sign" — OCR placeholder */
+    READ_TEXT,
+    /** "navigate to [place]" — directions request */
+    NAVIGATE,
+    /** "what time is it" / "what's the date" — time/date */
+    TIME_DATE,
+    /** "battery level" — device battery readout */
+    BATTERY,
+    /** "repeat that" / "say again" — replay last response */
+    REPEAT,
+    /** "stop" / "be quiet" — silence TTS immediately */
+    STOP,
+
+    /** Unrecognised speech — fallback to Gemini if API key available */
     UNKNOWN
 }

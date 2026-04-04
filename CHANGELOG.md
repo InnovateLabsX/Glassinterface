@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2] - 2026-04-05
+
+### Added
+- **Gemini AI Conversational Assistant**: Free-form Q&A powered by Google Gemini 2.0 Flash via REST API. Ask anything — unrecognized commands are automatically routed to Gemini with full scene context (what the camera sees) and saved memories.
+- **7 New Voice Commands**: "what time is it", "battery level", "repeat that", "stop/be quiet", "read this" (placeholder), "navigate to [place]", "ask Gemini [question]".
+- **Scene-Aware Q&A**: Gemini receives real-time object detection data so it can answer questions like "is it safe to cross?" or "what's in front of me?".
+- **Multi-Turn Conversations**: 10-turn conversation history for context-aware follow-up questions.
+- **Gemini API Key Setting**: New text field in Settings screen for the API key (free from aistudio.google.com).
+- **Navigation Advice**: "Navigate to [place]" routes to Gemini with scene context for safety-aware walking directions.
+- **Battery & Time**: Offline commands for device battery level and current date/time.
+- **Repeat & Stop**: "Repeat that" replays last response, "stop/be quiet" silences TTS immediately.
+
+### Changed
+- **VoiceCommandParser**: Unrecognized speech now routes to Gemini instead of error message. Added safety question detection ("is it safe", "should I", etc.).
+- **Help Command**: Updated to list all 18+ available commands including Gemini Q&A.
+
+---
+
 ## [0.6.1] - 2026-04-05
 
 ### Fixed

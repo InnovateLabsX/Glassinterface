@@ -8,6 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,6 +22,13 @@ class SettingsViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = AlertConfig()
+        )
+
+    val geminiApiKey: StateFlow<String> = settingsRepository.geminiApiKey
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ""
         )
 
     fun onSensitivityChanged(value: Float) {
@@ -50,6 +58,12 @@ class SettingsViewModel @Inject constructor(
     fun onExternalCameraChanged(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.updateUseExternalCamera(enabled)
+        }
+    }
+
+    fun onGeminiApiKeyChanged(key: String) {
+        viewModelScope.launch {
+            settingsRepository.updateGeminiApiKey(key)
         }
     }
 }

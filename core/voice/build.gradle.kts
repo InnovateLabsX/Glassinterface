@@ -29,6 +29,10 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
 
+    // Networking (for GeminiClient)
+    implementation(libs.okhttp)
+    implementation(libs.gson)
+
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)

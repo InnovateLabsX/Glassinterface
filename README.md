@@ -45,7 +45,19 @@ Camera Frame → YOLOv8s TFLite + ML Kit Face Detection → Distance Estimator �
 | "save note [text]" | Saves a free-form note |
 | "what do you see?" | Describes all detected objects aloud |
 | "list memories" | Reads a summary of all saved items |
+| "what time is it?" | Reads the current date and time |
+| "battery level" | Reads device battery percentage |
+| "navigate to [place]" | Gemini-powered safety-aware walking directions |
+| "repeat that" | Replays the last spoken response |
+| "stop" / "be quiet" | Silences TTS immediately |
+| "ask Gemini [question]" | Free-form Q&A with Gemini AI |
+| *any other question* | Automatically routed to Gemini with scene context |
 | "help" | Lists available commands |
+
+### Gemini Setup
+1. Get a free API key from [aistudio.google.com](https://aistudio.google.com)
+2. Open GlassInterface → **Settings** → paste key in **Gemini API Key** field
+3. Done! Ask anything — the assistant is now context-aware
 
 ## Installation
 

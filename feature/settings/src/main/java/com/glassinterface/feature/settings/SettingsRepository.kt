@@ -34,6 +34,7 @@ class SettingsRepository @Inject constructor(
         private val KEY_COOLDOWN_MS = longPreferencesKey("cooldown_ms")
         private val KEY_SERVER_URL = stringPreferencesKey("server_url")
         private val KEY_USE_EXTERNAL_CAMERA = booleanPreferencesKey("use_external_camera")
+        private val KEY_GEMINI_API_KEY = stringPreferencesKey("gemini_api_key")
     }
 
     /**
@@ -76,6 +77,17 @@ class SettingsRepository @Inject constructor(
     suspend fun updateUseExternalCamera(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[KEY_USE_EXTERNAL_CAMERA] = enabled
+        }
+    }
+
+    /** Observe the Gemini API key. */
+    val geminiApiKey: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_GEMINI_API_KEY] ?: ""
+    }
+
+    suspend fun updateGeminiApiKey(key: String) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_GEMINI_API_KEY] = key.trim()
         }
     }
 }
