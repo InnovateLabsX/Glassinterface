@@ -119,18 +119,15 @@ class CameraFrameProvider @Inject constructor() {
                     val now = System.currentTimeMillis()
                     if (now - lastExternalFrameMs < framePeriodMs) return
 
-                    android.util.Log.d("CameraFrameProvider", "Received binary frame: ${bytes.size} bytes")
                     val byteArray = bytes.toByteArray()
                     val options = android.graphics.BitmapFactory.Options().apply {
-                        inPreferredConfig = android.graphics.Bitmap.Config.RGB_565 // smaller memory
+                        inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
                     }
                     val bitmap = android.graphics.BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size, options)
                     if (bitmap != null) {
                         lastExternalFrameMs = now
                         framesRead++
                         _frames.tryEmit(bitmap)
-                    } else {
-                        android.util.Log.w("CameraFrameProvider", "Failed to decode binary WebSocket frame")
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("CameraFrameProvider", "Error processing WebSocket frame", e)
@@ -142,16 +139,15 @@ class CameraFrameProvider @Inject constructor() {
                     val now = System.currentTimeMillis()
                     if (now - lastExternalFrameMs < framePeriodMs) return
 
-                    android.util.Log.d("CameraFrameProvider", "Received text frame: ${text.length} chars")
-                    // If ESP32 sends JPEG as Base64 text string by mistake, decode it:
                     val byteArray = android.util.Base64.decode(text, android.util.Base64.DEFAULT)
-                    val bitmap = android.graphics.BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size)
+                    val options = android.graphics.BitmapFactory.Options().apply {
+                        inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
+                    }
+                    val bitmap = android.graphics.BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size, options)
                     if (bitmap != null) {
                         lastExternalFrameMs = now
                         framesRead++
                         _frames.tryEmit(bitmap)
-                    } else {
-                        android.util.Log.w("CameraFrameProvider", "Failed to decode text WebSocket frame")
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("CameraFrameProvider", "Error processing Text WebSocket frame", e)
@@ -185,20 +181,22 @@ class CameraFrameProvider @Inject constructor() {
                     var framesRead = 0
                     while (isActive) {
                         try {
+                            val now = System.currentTimeMillis()
+                            // Skip reading/decoding the frame if it's too fast for our gate
+                            if (now - lastExternalFrameMs < framePeriodMs) {
+                                // We still need to clear the stream, but mjpegStream.readMjpegFrame is what reads it.
+                                // It might be better to just read it and drop it, OR clear the buffer.
+                                // For now, let's just let it read but skip emission.
+                            }
+
                             val bitmap = mjpegStream.readMjpegFrame()
                             if (bitmap != null) {
-                                val now = System.currentTimeMillis()
+                                val finish = System.currentTimeMillis()
                                 framesRead++
-                                if (framesRead % 30 == 0) {
-                                    android.util.Log.d("CameraFrameProvider", "Successfully read $framesRead frames.")
-                                }
-                                // Throttle: only pass frame to AI if enough time has elapsed
-                                if (now - lastExternalFrameMs >= framePeriodMs) {
-                                    lastExternalFrameMs = now
+                                if (finish - lastExternalFrameMs >= framePeriodMs) {
+                                    lastExternalFrameMs = finish
                                     _frames.tryEmit(bitmap)
                                 }
-                            } else {
-                                android.util.Log.w("CameraFrameProvider", "readMjpegFrame returned null bitmap")
                             }
                         } catch (e: Exception) {
                             android.util.Log.e("CameraFrameProvider", "Error reading frame in loop", e)

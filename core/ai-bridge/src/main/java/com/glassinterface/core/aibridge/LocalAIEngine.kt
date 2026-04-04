@@ -43,6 +43,13 @@ class LocalAIEngine(private val context: Context) : AIEngine {
     }
 
     private var interpreter: Interpreter? = null
+    private var enhancedBitmap: Bitmap? = null
+    private var enhancedCanvas: Canvas? = null
+    private val enhancementPaint = Paint()
+    private val imageProcessor = ImageProcessor.Builder()
+        .add(ResizeOp(INPUT_SIZE, INPUT_SIZE, ResizeOp.ResizeMethod.BILINEAR))
+        .add(NormalizeOp(0f, 255f))
+        .build()
     private val distanceEstimator = DistanceEstimator()
     private val centroidTracker = CentroidTracker()
     private val riskScorer = RiskScorer()
@@ -79,57 +86,52 @@ class LocalAIEngine(private val context: Context) : AIEngine {
             return DetectionResult(emptyList())
         }
 
-        // Enhance low-quality / ESP32-CAM frames before feeding the model.
-        // A contrast+brightness boost recovers detail lost in JPEG compression
-        // and helps YOLOv8 activate the correct class neurons on blurry input.
+        // 1. Enhance low-quality / ESP32-CAM frames.
+        val prepStart = System.currentTimeMillis()
         val enhancedFrame = enhanceFrame(frame)
 
-        // 1. Preprocess using TensorImage
+        // 2. Preprocess using TensorImage
         val inputTensor = interpreter?.getInputTensor(0)
-        val inputShape = inputTensor?.shape() ?: intArrayOf(1, INPUT_SIZE, INPUT_SIZE, 3)
         val inputDataType = inputTensor?.dataType() ?: DataType.FLOAT32
 
-        val imageProcessor = ImageProcessor.Builder()
-            .add(ResizeOp(INPUT_SIZE, INPUT_SIZE, ResizeOp.ResizeMethod.BILINEAR))
-            .add(NormalizeOp(0f, 255f))
-            .build()
-        
         var tensorImage = TensorImage(inputDataType)
         tensorImage.load(enhancedFrame)
         tensorImage = imageProcessor.process(tensorImage)
+        val prepTime = System.currentTimeMillis() - prepStart
 
-        // 2. Output Buffer Allocation
+        // 3. Output Buffer Allocation
+        val inferStart = System.currentTimeMillis()
         val outputTensor = interpreter?.getOutputTensor(0)
         val outputShape = outputTensor?.shape() ?: intArrayOf(1, 84, 8400)
         val outputDataType = outputTensor?.dataType() ?: DataType.FLOAT32
-
         val outputBuffer = TensorBuffer.createFixedSize(outputShape, outputDataType)
 
-        // 3. Inference
+        // 4. Inference
         try {
             interpreter?.run(tensorImage.buffer, outputBuffer.buffer)
         } catch (e: Exception) {
             Log.e(TAG, "Inference failed: ${e.message}", e)
             return DetectionResult(emptyList())
         }
+        val inferTime = System.currentTimeMillis() - inferStart
 
+        // 5. Post-process
+        val postStart = System.currentTimeMillis()
         val rawBoxes = extractBoxes(outputBuffer.floatArray, frame.width, frame.height)
-
-        // 4. Enrich with distance
         val enrichedBoxes = distanceEstimator.estimate(rawBoxes, frame.height)
-
-        // 5. Track objects across frames (assigns IDs, velocity, approaching)
         val trackedBoxes = centroidTracker.update(enrichedBoxes)
-
-        // 6. Score risks and generate alerts
         val alerts = riskScorer.score(trackedBoxes)
+        val postTime = System.currentTimeMillis() - postStart
 
-        val processingTimeMs = (System.currentTimeMillis() - startMs).toFloat()
+        val totalMs = System.currentTimeMillis() - startMs
+        if (totalMs > 10) {
+            Log.d(TAG, "Frame stats: total=${totalMs}ms (prep=${prepTime}ms, infer=${inferTime}ms, post=${postTime}ms)")
+        }
 
         return DetectionResult(
             boxes = trackedBoxes,
             alerts = alerts,
-            processingTimeMs = processingTimeMs
+            processingTimeMs = totalMs.toFloat()
         )
     }
 
@@ -215,6 +217,9 @@ class LocalAIEngine(private val context: Context) : AIEngine {
     override fun release() {
         interpreter?.close()
         interpreter = null
+        enhancedBitmap?.recycle()
+        enhancedBitmap = null
+        enhancedCanvas = null
     }
 
     /**
@@ -230,11 +235,15 @@ class LocalAIEngine(private val context: Context) : AIEngine {
     private fun enhanceFrame(src: Bitmap): Bitmap {
         val contrast = 1.25f
         val brightness = 8f
-        val output = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(output)
-        val paint = Paint().apply {
+
+        // Re-use bitmap if dimensions match
+        if (enhancedBitmap == null || enhancedBitmap?.width != src.width || enhancedBitmap?.height != src.height) {
+            enhancedBitmap?.recycle()
+            enhancedBitmap = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
+            enhancedCanvas = Canvas(enhancedBitmap!!)
+            
             val translate = (-(255 * (contrast - 1)) / 2) + brightness
-            colorFilter = ColorMatrixColorFilter(
+            enhancementPaint.colorFilter = ColorMatrixColorFilter(
                 ColorMatrix(floatArrayOf(
                     contrast, 0f, 0f, 0f, translate,
                     0f, contrast, 0f, 0f, translate,
@@ -243,7 +252,8 @@ class LocalAIEngine(private val context: Context) : AIEngine {
                 ))
             )
         }
-        canvas.drawBitmap(src, 0f, 0f, paint)
-        return output
+
+        enhancedCanvas?.drawBitmap(src, 0f, 0f, enhancementPaint)
+        return enhancedBitmap!!
     }
 }
