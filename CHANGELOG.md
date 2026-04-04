@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1] - 2026-04-05
+
+### Fixed
+- **Voice Interruption / Continuous Shouting**: Fixed a bug where continuous `TTSManager` spatial alerts were drowning out the user's voice input, causing continuous "shouting" and ignored speech recognition. TTS is now actively muted while the microphone is listening, and immediately halted upon tapping the mic FAB.
+
+---
+
 ## [0.6.0] - 2026-04-05
 
 ### Added

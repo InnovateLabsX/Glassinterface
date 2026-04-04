@@ -109,6 +109,7 @@ class MainViewModel @Inject constructor(
         if (voiceInputManager.isListening.value) {
             voiceInputManager.stopListening()
         } else {
+            ttsManager.stop() // Stop TTS making noise to free mic
             voiceInputManager.startListening()
         }
     }
@@ -323,13 +324,15 @@ class MainViewModel @Inject constructor(
                         )
                     }
 
-                    topAlert?.let { alert ->
-                        ttsManager.speakAlert(
-                            message = alert.message,
-                            cooldownMs = config.cooldownMs,
-                            priority = alert.priority,
-                            label = alert.label
-                        )
+                    if (!voiceInputManager.isListening.value) {
+                        topAlert?.let { alert ->
+                            ttsManager.speakAlert(
+                                message = alert.message,
+                                cooldownMs = config.cooldownMs,
+                                priority = alert.priority,
+                                label = alert.label
+                            )
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Inference error", e)
