@@ -35,7 +35,7 @@ class NetworkAIEngine @Inject constructor() : AIEngine {
 
     companion object {
         private const val TAG = "NetworkAIEngine"
-        private const val JPEG_QUALITY = 70
+        private const val JPEG_QUALITY = 50
     }
 
     private val gson = Gson()
@@ -121,10 +121,10 @@ class NetworkAIEngine @Inject constructor() : AIEngine {
 
     // ── Helpers ──────────────────────────────────────────────────────
 
-    private fun bitmapToJpeg(bitmap: Bitmap): ByteArray {
+    private suspend fun bitmapToJpeg(bitmap: Bitmap): ByteArray = withContext(Dispatchers.IO) {
         val stream = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, stream)
-        return stream.toByteArray()
+        stream.toByteArray()
     }
 
     /**

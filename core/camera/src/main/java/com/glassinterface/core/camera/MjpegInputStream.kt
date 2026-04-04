@@ -3,111 +3,93 @@ package com.glassinterface.core.camera
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import java.io.BufferedInputStream
-import java.io.ByteArrayInputStream
-import java.io.DataInputStream
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
-import java.util.Properties
+import java.io.PushbackInputStream
 
 /**
  * Parses a continuous MJPEG (Motion JPEG) HTTP stream into discrete Bitmap frames.
- * Ideal for streaming video from an ESP32-CAM over local Wi-Fi.
+ * Highly optimized chunk-based parser using PushbackInputStream to avoid byte-by-byte lock overhead.
  */
-class MjpegInputStream(inputStream: InputStream) : DataInputStream(BufferedInputStream(inputStream, HEADER_MAX_LENGTH)) {
+class MjpegInputStream(inputStream: InputStream) {
 
-    companion object {
-        private val SOI_MARKER = byteArrayOf(0xFF.toByte(), 0xD8.toByte())
-        private val EOF_MARKER = byteArrayOf(0xFF.toByte(), 0xD9.toByte())
-        private const val CONTENT_LENGTH = "Content-Length"
-        private const val HEADER_MAX_LENGTH = 100000
-        private const val FRAME_MAX_LENGTH = 100000 + HEADER_MAX_LENGTH
-    }
-
-    private var contentLen = -1
+    private val pushbackStream = PushbackInputStream(BufferedInputStream(inputStream, 65536), 8192)
+    private val buffer = ByteArray(4096)
+    private val frameBuffer = ByteArrayOutputStream(250000)
 
     @Throws(IOException::class)
     fun readMjpegFrame(): Bitmap? {
-        mark(FRAME_MAX_LENGTH)
-        val headerLen = getStartOfSequence(this, SOI_MARKER)
-        reset()
+        frameBuffer.reset()
+        var foundSOI = false
+        var lastByte = -1
 
-        val header = ByteArray(headerLen)
-        readFully(header)
-
-        try {
-            contentLen = parseContentLength(header)
-            if (contentLen <= 0) {
-                contentLen = getEndOfSequence(this, EOF_MARKER)
+        // 1. Fast forward to FF D8 (Start Of Image)
+        while (!foundSOI) {
+            val count = pushbackStream.read(buffer)
+            if (count == -1) return null
+            
+            var soiIndex = -1
+            for (i in 0 until count) {
+                val b = buffer[i].toInt() and 0xFF
+                if (lastByte == 0xFF && b == 0xD8) {
+                    soiIndex = i
+                    break
+                }
+                lastByte = b
             }
-        } catch (nfe: NumberFormatException) {
-            contentLen = getEndOfSequence(this, EOF_MARKER)
+            
+            if (soiIndex != -1) {
+                foundSOI = true
+                frameBuffer.write(0xFF)
+                frameBuffer.write(0xD8)
+                
+                val unreadCount = count - 1 - soiIndex
+                if (unreadCount > 0) {
+                    pushbackStream.unread(buffer, soiIndex + 1, unreadCount)
+                }
+            }
         }
 
-        reset()
-
-        if (contentLen <= 0) {
-            // Unlikely or stream corrupt, skip and return null to not crash
-            skipBytes(headerLen)
-            return null
-        }
-
-        val frameData = ByteArray(contentLen)
-        skipBytes(headerLen)
-        readFully(frameData)
-
-        return BitmapFactory.decodeStream(ByteArrayInputStream(frameData))
-    }
-
-    @Throws(IOException::class)
-    private fun getStartOfSequence(inputStream: DataInputStream, sequence: ByteArray): Int {
-        var len = 0
-        var matchIndex = 0
+        // 2. Read chunked until FF D9 (End Of Image)
+        var bytesRead = 0
+        lastByte = -1
         while (true) {
-            val b = inputStream.readByte()
-            len++
-            if (b == sequence[matchIndex]) {
-                matchIndex++
-                if (matchIndex == sequence.size) {
-                    return len
-                }
-            } else {
-                matchIndex = if (b == sequence[0]) 1 else 0
-            }
-            if (len >= FRAME_MAX_LENGTH) return len // Fallback
-        }
-    }
+            val count = pushbackStream.read(buffer)
+            if (count == -1) break
 
-    @Throws(IOException::class)
-    private fun getEndOfSequence(inputStream: DataInputStream, sequence: ByteArray): Int {
-        var len = 0
-        var matchIndex = 0
-        while (true) {
-            val b = inputStream.readByte()
-            len++
-            if (b == sequence[matchIndex]) {
-                matchIndex++
-                if (matchIndex == sequence.size) {
-                    return len
+            var eofIndex = -1
+            for (i in 0 until count) {
+                val b = buffer[i].toInt() and 0xFF
+                if (lastByte == 0xFF && b == 0xD9) {
+                    eofIndex = i
+                    break
                 }
-            } else {
-                matchIndex = if (b == sequence[0]) 1 else 0
+                lastByte = b
             }
-            if (len >= FRAME_MAX_LENGTH) return -1
-        }
-    }
 
-    @Throws(IOException::class, NumberFormatException::class)
-    private fun parseContentLength(headerBytes: ByteArray): Int {
-        val headerString = ByteArrayInputStream(headerBytes).bufferedReader().readText()
-        val lines = headerString.split("\n", "\r\n")
-        for (line in lines) {
-            if (line.startsWith(CONTENT_LENGTH, ignoreCase = true)) {
-                val parts = line.split(":")
-                if (parts.size == 2) {
-                    return parts[1].trim().toInt()
+            if (eofIndex != -1) {
+                // Found FF D9
+                frameBuffer.write(buffer, 0, eofIndex + 1)
+                
+                // Push back the overshoot bytes so next frame doesn't lose them
+                val unreadCount = count - 1 - eofIndex
+                if (unreadCount > 0) {
+                    pushbackStream.unread(buffer, eofIndex + 1, unreadCount)
                 }
+                break
+            } else {
+                frameBuffer.write(buffer, 0, count)
+            }
+            
+            bytesRead += count
+            if (bytesRead > 1000000) {
+                // Failsafe, frame too big
+                return null
             }
         }
-        return 0
+
+        val frameData = frameBuffer.toByteArray()
+        return BitmapFactory.decodeByteArray(frameData, 0, frameData.size)
     }
 }
