@@ -40,6 +40,9 @@ class TTSManager @Inject constructor(
     private val _isSpeaking = MutableStateFlow(false)
     /** Observable state for whether TTS is currently speaking. */
     val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
+    
+    @Volatile
+    private var currentPriority: String = "INFO"
 
     /**
      * Initialize the TTS engine. Call this in Application.onCreate or Activity.onCreate.
@@ -128,14 +131,21 @@ class TTSManager @Inject constructor(
             return false
         }
 
+        // Do not interrupt the voice assistant for routine spatial alerts
+        if (_isSpeaking.value && currentPriority == "voice_assistant" && priority != "CRITICAL" && priority != "voice_assistant") {
+            Log.d(TAG, "Skipping $priority alert so it doesn't interrupt the voice assistant.")
+            return false
+        }
+
         // Adjust speech rate live for CRITICAL urgency
         tts?.setSpeechRate(if (priority == "CRITICAL") 1.25f else 1.05f)
 
         labelLastSpokenMs[key] = now
         lastSpokenMessage = message
+        currentPriority = priority
         val utteranceId = UUID.randomUUID().toString()
         tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
-        Log.i(TAG, "[${priority}] Speaking: $message")
+        Log.i(TAG, "[$priority] Speaking: $message")
         return true
     }
 

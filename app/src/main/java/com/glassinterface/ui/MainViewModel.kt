@@ -460,7 +460,7 @@ class MainViewModel @Inject constructor(
     private fun speak(text: String) {
         lastSpokenText = text
         _uiState.update { it.copy(voiceFeedback = text) }
-        ttsManager.speakAlert(text, cooldownMs = 0, priority = "INFO", label = "voice_assistant")
+        ttsManager.speakAlert(text, cooldownMs = 0, priority = "voice_assistant", label = "voice_assistant")
     }
 
     // ── Inference Loop ───────────────────────────────────────────────

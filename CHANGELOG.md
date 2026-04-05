@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.8] - 2026-04-06
+
+### Fixed
+- **Assistant TTS Interruption**: Fixed a critical bug in continuous listening mode where automated background spatial alerts (e.g. "person ahead") would forcefully cancel and flush the TTS queue while the Gemini Voice Assistant was in the middle of answering a conversational query. The assistant now temporarily halts incoming routine spatial reports until it finishes speaking.
+
 ## [0.6.7] - 2026-04-06
 
 ### Fixed
