@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.7] - 2026-04-06
+
+### Fixed
+- **Face Recognition Concurrency**: Fixed a critical race condition where the continuous inference loop overwrote the `lastFrame` while the user was speaking the "save face" command, leading to corrupted saves. Explicit `captureFrame()` clones are now generated for voice intents.
+- **ESP32 Camera ML Kit Compatibility**: Fixed ML Kit Face Detection failing silently on external ESP32-CAM feeds by re-routing the WebSocket binary decoder from `RGB_565` to universally-compatible `ARGB_8888` bitmaps.
+- **Corrupted Face Matching**: Fixed Face Embeddings saving structurally broken arrays (`FloatArray(128)`) when no face was present. Empty fallbacks now correctly map to a dimensionally accurate zero-state `FloatArray(20)`.
+- **Landmark Tolerance Constraints**: Relaxed ML Kit feature-extraction from a strict 6-landmark minimum down to a 3-landmark minimum, allowing robust face identification off low-resolution wearable camera angles. Also fixed variable-length vector crashes by zero-padding all missing landmarks implicitly to enforce strict `EMBEDDING_SIZE=20` arrays.
+
+---
+
 ## [0.6.6] - 2026-04-06
 
 ### Fixed

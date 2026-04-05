@@ -121,7 +121,7 @@ class CameraFrameProvider @Inject constructor() {
 
                     val byteArray = bytes.toByteArray()
                     val options = android.graphics.BitmapFactory.Options().apply {
-                        inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
+                        inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
                     }
                     val bitmap = android.graphics.BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size, options)
                     if (bitmap != null) {
@@ -141,7 +141,7 @@ class CameraFrameProvider @Inject constructor() {
 
                     val byteArray = android.util.Base64.decode(text, android.util.Base64.DEFAULT)
                     val options = android.graphics.BitmapFactory.Options().apply {
-                        inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
+                        inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
                     }
                     val bitmap = android.graphics.BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size, options)
                     if (bitmap != null) {

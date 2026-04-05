@@ -85,6 +85,19 @@ class MainViewModel @Inject constructor(
     @Volatile
     private var lastFrame: Bitmap? = null
 
+    /**
+     * Returns a safe copy of the latest frame. This prevents the inference loop
+     * from recycling/overwriting the bitmap while a voice command is using it.
+     */
+    private fun captureFrame(): Bitmap? {
+        return try {
+            lastFrame?.copy(Bitmap.Config.ARGB_8888, false)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to copy last frame", e)
+            null
+        }
+    }
+
     /** Last spoken response for REPEAT command. */
     private var lastSpokenText: String = ""
 
@@ -302,38 +315,53 @@ class MainViewModel @Inject constructor(
     // ── Existing Command Handlers (from v0.6.0) ─────────────────────
 
     private suspend fun handleSaveFace(name: String) {
-        val frame = lastFrame
+        val frame = captureFrame()
         if (frame == null) { speak("No camera frame available."); return }
-        val faces = withContext(Dispatchers.Default) { faceEngine.detectFaces(frame) }
-        val faceName = name.ifBlank { "Unknown" }
-        if (faces.isEmpty()) { 
-            val emptyEmbedding = FloatArray(128) { 0f }
-            memoryRepository.saveFace(faceName, emptyEmbedding, frame)
-            speak("No confident face detected, but saved the screenshot as $faceName.")
-            return 
+        try {
+            val faces = withContext(Dispatchers.Default) { faceEngine.detectFaces(frame) }
+            val faceName = name.ifBlank { "Unknown" }
+            if (faces.isEmpty()) {
+                // Use the correct embedding size so matching works later
+                val emptyEmbedding = FloatArray(FaceRecognitionEngine.EMBEDDING_SIZE) { 0f }
+                memoryRepository.saveFace(faceName, emptyEmbedding, frame)
+                speak("No confident face detected, but saved the screenshot as $faceName.")
+                return
+            }
+            val face = faces.first()
+            val thumbnail = withContext(Dispatchers.Default) {
+                faceEngine.cropFace(frame, face.boundingBox)
+            } ?: frame  // fall back to full frame if crop fails
+            memoryRepository.saveFace(faceName, face.embedding, thumbnail)
+            Log.d(TAG, "Saved face '$faceName' with embedding size=${face.embedding.size}")
+            speak("Saved face as $faceName.")
+        } catch (e: Exception) {
+            Log.e(TAG, "handleSaveFace failed", e)
+            speak("Failed to save face. Please try again.")
         }
-        val face = faces.first()
-        val thumbnail = faceEngine.cropFace(frame, face.boundingBox)
-        memoryRepository.saveFace(faceName, face.embedding, thumbnail)
-        speak("Saved face as $faceName.")
     }
 
     private suspend fun handleSaveObject() {
         val boxes = _uiState.value.boundingBoxes
-        val frame = lastFrame
-        if (boxes.isEmpty()) { 
-            if (frame != null) {
-                memoryRepository.saveObject("Unknown Scene", 0f, frame)
-                speak("No specific objects detected, but saved the scene screenshot.")
-            } else {
-                speak("No objects detected to save and no camera frame.")
+        val frame = captureFrame()
+        try {
+            if (boxes.isEmpty()) {
+                if (frame != null) {
+                    memoryRepository.saveObject("Unknown Scene", 0f, frame)
+                    speak("No specific objects detected, but saved the scene screenshot.")
+                } else {
+                    speak("No objects detected to save and no camera frame.")
+                }
+                return
             }
-            return 
+            val topBox = boxes.maxByOrNull { it.confidence }!!
+            val thumbnail = frame?.let { cropBox(it, topBox) } ?: frame
+            memoryRepository.saveObject(topBox.label, topBox.confidence, thumbnail)
+            Log.d(TAG, "Saved object '${topBox.label}' conf=${topBox.confidence}")
+            speak("Saved ${topBox.label} with ${(topBox.confidence * 100).toInt()}% confidence.")
+        } catch (e: Exception) {
+            Log.e(TAG, "handleSaveObject failed", e)
+            speak("Failed to save object. Please try again.")
         }
-        val topBox = boxes.maxByOrNull { it.confidence }!!
-        val thumbnail = frame?.let { cropBox(it, topBox) } ?: frame
-        memoryRepository.saveObject(topBox.label, topBox.confidence, thumbnail)
-        speak("Saved ${topBox.label} with ${(topBox.confidence * 100).toInt()}% confidence.")
     }
 
     private suspend fun handleSaveContact(payload: String) {
@@ -400,12 +428,19 @@ class MainViewModel @Inject constructor(
     }
 
     private suspend fun handleIdentifyFace() {
-        val frame = lastFrame
+        val frame = captureFrame()
         if (frame == null) { speak("No camera frame available."); return }
-        val faces = withContext(Dispatchers.Default) { faceEngine.detectFaces(frame) }
-        if (faces.isEmpty()) { speak("No face detected."); return }
-        val name = memoryRepository.findFaceByEmbedding(faces.first().embedding)
-        speak(if (name != null) "I think this is $name." else "I don't recognize this person.")
+        try {
+            val faces = withContext(Dispatchers.Default) { faceEngine.detectFaces(frame) }
+            if (faces.isEmpty()) { speak("No face detected."); return }
+            val face = faces.first()
+            Log.d(TAG, "Identifying face: embedding size=${face.embedding.size}, values=${face.embedding.take(4).joinToString()}")
+            val name = memoryRepository.findFaceByEmbedding(face.embedding)
+            speak(if (name != null) "I think this is $name." else "I don't recognize this person.")
+        } catch (e: Exception) {
+            Log.e(TAG, "handleIdentifyFace failed", e)
+            speak("Face identification failed. Please try again.")
+        }
     }
 
     private suspend fun handleListMemories() {

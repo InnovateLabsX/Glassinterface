@@ -113,29 +113,27 @@ class FaceRecognitionEngine {
             FaceLandmark.RIGHT_EAR
         )
 
-        val points = mutableListOf<Float>()
-        for (type in landmarks) {
-            val lm = face.getLandmark(type)
-            if (lm != null) {
-                points.add(lm.position.x)
-                points.add(lm.position.y)
-            }
-        }
-
-        if (points.size < 12) return null
-
         val box = face.boundingBox
         val cx = box.centerX().toFloat()
         val cy = box.centerY().toFloat()
         val scale = Math.max(box.width(), box.height()).toFloat().coerceAtLeast(1f)
 
+        // Always produce a fixed-size embedding; missing landmarks get 0.0
         val embedding = FloatArray(EMBEDDING_SIZE)
-        for (i in points.indices.step(2)) {
-            if (i + 1 < points.size && i < EMBEDDING_SIZE) {
-                embedding[i] = (points[i] - cx) / scale
-                embedding[i + 1] = (points[i + 1] - cy) / scale
+        var foundCount = 0
+        for ((idx, type) in landmarks.withIndex()) {
+            val lm = face.getLandmark(type)
+            if (lm != null) {
+                val xi = idx * 2
+                val yi = idx * 2 + 1
+                if (xi < EMBEDDING_SIZE) embedding[xi] = (lm.position.x - cx) / scale
+                if (yi < EMBEDDING_SIZE) embedding[yi] = (lm.position.y - cy) / scale
+                foundCount++
             }
         }
+
+        // Need at least 3 landmarks (eyes + nose) for a meaningful embedding
+        if (foundCount < 3) return null
 
         return embedding
     }
